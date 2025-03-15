@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 import os
+os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:128"
 import math
 import subprocess
 import glob
@@ -14,6 +15,7 @@ from src.functions.H_func import MakeFunc
 
 import gc
 import cooler
+torch.cuda.empty_cache()
 
 root = pyrootutils.setup_root(
     search_from=__file__,
@@ -121,7 +123,8 @@ class GSE130711Module(pl.LightningDataModule):
         self.piece_size = piece_size
         self.cellLine = cell_line
         self.cellNo = cell_No
-        self.dirname = str(root) + "/DataFull" + "/DataFull_"+self.cellLine+"_cell"+str(self.cellNo)+"_"+str(self.res)+"_"+deg+"_"+str(sigma_0)
+        # self.dirname = str(root) + "/DataFull" + "/DataFull_"+self.cellLine+"_cell"+str(self.cellNo)+"_"+str(self.res)+"_"+deg+"_"+str(sigma_0)
+        self.dirname = str(root) + "/src/Datasets/Human_new"
         self.sigma_0 = sigma_0
         self.deg = deg
         self.channel = channel
@@ -131,7 +134,8 @@ class GSE130711Module(pl.LightningDataModule):
             subprocess.run("mkdir -p "+self.dirname+"/Constraints", shell = True)
 
         outdir = self.dirname+"/Constraints"
-        file_inter = glob.glob(str(root) + '/Datasets/Human/' + 'cell'+str(self.cellNo)+'_'+r'*.mcool')
+        file_inter = glob.glob(str(root) + '/src/Datasets/Human_new/' + 'cell'+str(self.cellNo)+'_'+r'*.mcool')
+        # file_inter = glob.glob(str(root) + '/src/Datasets/Human_new/cell1_10kb_contacts.mcool') 
         filepath = file_inter[0]
         print(f'------------the file_path for the current cellline is: {file_inter[0]}')
         AllRes = cooler.fileops.list_coolers(filepath)
@@ -360,7 +364,8 @@ class GSE131811Module(pl.LightningDataModule):
         self.piece_size = piece_size
         self.cellLine = cell_line
         self.cellNo = cell_No
-        self.dirname = str(root) + "/DataFull" + "/DataFull_"+self.cellLine+"_cell"+str(self.cellNo)+"_"+str(self.res)+"_"+deg+"_"+str(sigma_0)
+        # self.dirname = str(root) + "/DataFull" + "/DataFull_"+self.cellLine+"_cell"+str(self.cellNo)+"_"+str(self.res)+"_"+deg+"_"+str(sigma_0)
+        self.dirname = "src/Datasets/Drosophila_new"
         self.sigma_0 = sigma_0
         self.deg = deg
         self.channel = channel
@@ -370,11 +375,13 @@ class GSE131811Module(pl.LightningDataModule):
             subprocess.run("mkdir -p "+self.dirname+"/Constraints", shell = True)
 
         outdir = self.dirname+"/Constraints"
-        file_inter = glob.glob(str(root) + '/Datasets/Drosophila/' + 'cell'+str(self.cellNo) + '_' + r'*.mcool')
+        # file_inter = glob.glob(str(root) + '/src/Datasets/Drosophila_new/' + 'cell'+str(self.cellNo) + '_' + r'*.mcool')
+        # file_inter = glob.glob(str(root) + '/src/Datasets/Drosophila_new/GSE131811_Cell1.10000.mcool'
         filepath = file_inter[0]
         print(f'------------the file_path for the current cellline is: {file_inter[0]}')
         AllRes = cooler.fileops.list_coolers(filepath)
         print(AllRes)
+        print(root)
 
         c = cooler.Cooler(filepath + '::resolutions/' + str(self.res))
         c1 = c.chroms()[:]  # c1 chromesize information in the list format
@@ -642,4 +649,3 @@ if __name__ == '__main__':
     fig.colorbar(show2, ax=ax[1], location='bottom', orientation='horizontal')
 
     plt.show()
-

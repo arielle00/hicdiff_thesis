@@ -121,7 +121,9 @@ class GSE130711Module(pl.LightningDataModule):
         self.piece_size = piece_size
         self.cellLine = cell_line
         self.cellNo = cell_No
-        self.dirname = str(root) + "/DataFull" + "/DataFull_"+self.cellLine+"_cell"+str(self.cellNo)+"_"+str(self.res)+"_"+deg+"_"+str(sigma_0)
+        # self.dirname = str(root) + "/DataFull" + "/DataFull_"+self.cellLine+"_cell"+str(self.cellNo)+"_"+str(self.res)+"_"+deg+"_"+str(sigma_0)
+        self.dirname = str(root) + "/src/Datasets/Human_new/"
+        print(root)
         self.sigma_0 = sigma_0
         self.deg = deg
         self.channel = channel
@@ -131,7 +133,12 @@ class GSE130711Module(pl.LightningDataModule):
             subprocess.run("mkdir -p "+self.dirname+"/Constraints", shell = True)
 
         outdir = self.dirname+"/Constraints"
-        file_inter = glob.glob(str(root) + '/Datasets/Human/' + 'cell'+str(self.cellNo)+'_'+r'*.mcool')
+        # file_inter = glob.glob(str(root) + '/Datasets/Human/Interaction' + 'cell'+str(self.cellNo)+'_'+r'*.mcool')
+        file_inter = glob.glob(self.dirname + '/*.mcool')
+
+        if not file_inter:
+            raise FileNotFoundError(f"No .mcool files found in {self.dirname}")
+
         filepath = file_inter[0]
         print(f'------------the file_path for the current cellline is: {file_inter[0]}')
         AllRes = cooler.fileops.list_coolers(filepath)
@@ -360,18 +367,22 @@ class GSE131811Module(pl.LightningDataModule):
         self.piece_size = piece_size
         self.cellLine = cell_line
         self.cellNo = cell_No
-        self.dirname = str(root) + "/DataFull" + "/DataFull_"+self.cellLine+"_cell"+str(self.cellNo)+"_"+str(self.res)+"_"+deg+"_"+str(sigma_0)
+        # self.dirname = str(root) + "/DataFull" + "/DataFull_"+self.cellLine+"_cell"+str(self.cellNo)+"_"+str(self.res)+"_"+deg+"_"+str(sigma_0)
         self.sigma_0 = sigma_0
         self.deg = deg
         self.channel = channel
+        # self.dirname = "/scratch/rnd-rojas/single-cell"
+        self.dirname = "/src/Datasets/Drosophila_new"
 
     def extract_constraint_mats(self):
         if not os.path.exists(self.dirname+"/Constraints"):
             subprocess.run("mkdir -p "+self.dirname+"/Constraints", shell = True)
 
         outdir = self.dirname+"/Constraints"
-        file_inter = glob.glob(str(root) + '/Datasets/Drosophila/' + 'cell'+str(self.cellNo) + '_' + r'*.mcool')
-        filepath = file_inter[0]
+        file_inter = glob.glob(str(root) + '/src/Datasets/Drosophila_new' + 'cell'+str(self.cellNo) + '_' + r'*.mcool')
+        # filepath = file_inter[0]
+        filepath = os.path.join(self.dirname, "GSE131811_Merged.10000.mcool")
+        filepath = os.path.join(self.dirname, "cell1_10kb_contacts.mcool")
         print(f'------------the file_path for the current cellline is: {file_inter[0]}')
         AllRes = cooler.fileops.list_coolers(filepath)
         print(AllRes)

@@ -254,7 +254,6 @@ class hicedrn_Diff(nn.Module):
         default_out_channels = channels
         self.out_dim = default(out_dim, default_out_channels)
         self.tail = nn.Conv2d(n_feat, self.out_dim, kernel_size, padding=1)
-        # self.final_activation = nn.Tanh()
 
     def make_layer(self, block, layers):
         res_block = []
@@ -295,3 +294,66 @@ class hicedrn_Diff(nn.Module):
             elif isinstance(module, nn.BatchNorm2d):
                 nn.init.normal_(module.weight.data, 1.0, 0.02)
                 nn.init.constant_(module.bias.data, 0)
+
+
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+class HiCGenerator(nn.Module):
+    def __init__(self, in_channels=1, out_channels=1, num_filters=64):
+        super(HiCGenerator, self).__init__()
+        
+        self.conv1 = nn.Conv2d(in_channels, num_filters, kernel_size=3, padding=1)
+        self.conv2 = nn.Conv2d(num_filters, num_filters * 2, kernel_size=3, padding=1)
+        self.conv3 = nn.Conv2d(num_filters * 2, num_filters * 4, kernel_size=3, padding=1)
+        
+        self.deconv1 = nn.ConvTranspose2d(num_filters * 4, num_filters * 2, kernel_size=3, padding=1)
+        self.deconv2 = nn.ConvTranspose2d(num_filters * 2, num_filters, kernel_size=3, padding=1)
+        self.deconv3 = nn.ConvTranspose2d(num_filters, out_channels, kernel_size=3, padding=1)
+        
+        self.relu = nn.ReLU()
+        self.tanh = nn.Tanh()
+        
+    def forward(self, x):
+        x1 = self.relu(self.conv1(x))
+        x2 = self.relu(self.conv2(x1))
+        x3 = self.relu(self.conv3(x2))
+        
+        x4 = self.relu(self.deconv1(x3))
+        x5 = self.relu(self.deconv2(x4))
+        x6 = self.tanh(self.deconv3(x5))
+        
+        return x6
+
+
+import torch
+import torch.nn as nn
+
+class HiCDiscriminator(nn.Module):
+    def __init__(self, in_channels=1, num_filters=64):
+        super(HiCDiscriminator, self).__init__()
+
+        self.model = nn.Sequential(
+            nn.Conv2d(in_channels, num_filters, kernel_size=3, stride=2, padding=1),
+            nn.LeakyReLU(0.2, inplace=True),
+            
+            nn.Conv2d(num_filters, num_filters * 2, kernel_size=3, stride=2, padding=1),
+            nn.BatchNorm2d(num_filters * 2),
+            nn.LeakyReLU(0.2, inplace=True),
+            
+            nn.Conv2d(num_filters * 2, num_filters * 4, kernel_size=3, stride=2, padding=1),
+            nn.BatchNorm2d(num_filters * 4),
+            nn.LeakyReLU(0.2, inplace=True),
+            
+            nn.Conv2d(num_filters * 4, num_filters * 8, kernel_size=3, stride=2, padding=1),
+            nn.BatchNorm2d(num_filters * 8),
+            nn.LeakyReLU(0.2, inplace=True),
+            
+            nn.Flatten(),
+            nn.Linear(num_filters * 8 * 4 * 4, 1),
+            nn.Sigmoid()
+        )
+
+    def forward(self, x):
+        return self.model(x)

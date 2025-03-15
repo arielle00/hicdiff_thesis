@@ -4,7 +4,9 @@ import pyrootutils
 import torch
 from torch import optim
 from tqdm import tqdm
+from distutils.util import strtobool
 
+from src.model.deephic import Generator as DeepHiC_Generator  # Import DeepHiC Generator model
 from src.model.hicedrn_Diff import hicedrn_Diff  # baseline models' modules
 from src.hicdiff_condition import GaussianDiffusion as Gaussiandiff_cond  # baseline models' modules conditional Diff
 from src.hicdiff import GaussianDiffusion as Gaussiandiff # baseline models's modules without conditional
@@ -27,7 +29,9 @@ root = pyrootutils.setup_root(
 
 def create_parser():
     parser = argparse.ArgumentParser(description = 'HiCDiff works for single-cell HI-C data denoising !!!')
-    parser.add_argument('-u', '--unspervised', type = bool, default = True, help = 'True means you will use unsupervsed way to train your model, False indicates you will use supervised way to train your model')
+    # parser.add_argument('-u', '--unspervised', type = bool, default = True, help = 'True means you will use unsupervsed way to train your model, False indicates you will use supervised way to train your model')
+    parser.add_argument('-u', '--unsupervised', action=argparse.BooleanOptionalAction,
+                        help="Use 'True' for unsupervised training, 'False' for supervised training")
     parser.add_argument('-b', '--batch_size', type = int, default = 64, help = 'Batch size for embeddings generation.')
     parser.add_argument('-e', '--epoch', type = int, default = 400, help = 'Number of epochs used for embeddings generation')
     parser.add_argument('-l', '--celline', type = str, default = "Human",
@@ -39,6 +43,8 @@ def create_parser():
                         help = f"The Gaussian noise level for the raw dataset, it should be equal or larger than 0.0 but not larger than 1.0, '1.0' means the largest noise added to datasets.")
 
     args = parser.parse_args()
+    # args.unsupervised = args.unsupervised.lower() in ["true", "1", "t", "yes"]
+
     return args
 
 class HiCDiff:
@@ -53,15 +59,11 @@ class HiCDiff:
         self.deg = deg
         self.condition = condition
 
+
         # whether using GPU for training
-        device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
+        device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
         #device = torch.device('cpu')
         self.device = device
-
-        # experiment tracker
-        wandb.init(project='HiCDiff')
-        wandb.run.name = f'hicedrn_Diff_conditional_L2_linear cell_{cellNo}'
-        wandb.run.save()   # get the random run name in my script by Call wandb.run.save(), then get the name with wandb.run.name .
 
         # out_dir: directory storing checkpoint files and parameters for saving to the our_dir
         dir_name = 'Model_Weights'
@@ -82,28 +84,33 @@ class HiCDiff:
         self.train_loader = DataModule.train_dataloader()
         self.valid_loader = DataModule.val_dataloader()
 
-        # load the network for different models
-        if not self.condition:
-            model = hicedrn_Diff(
-                self_condition = True
-            )
+        if not self.condition:  # Supervised mode
+            print("Supervised Mode: Using DeepHiC Expert Model!")
+            # self.expert_model = DeepHiC_Generator(scale_factor=2).to(self.device)
+            # self.expert_model.eval()  # Set DeepHiC to evaluation mode
+
+            model = hicedrn_Diff(self_condition=True)
             self.diffusion = Gaussiandiff_cond(
                 model,
                 image_size=piece_s,
-                timesteps=timestep,  # number of steps
+                timesteps=timestep,
                 loss_type='l2',  # L1 or L2
-                beta_schedule = 'linear',
-                auto_normalize = False
+                beta_schedule='linear',
+                auto_normalize=False
             ).to(device)
-        else:
+
+        else:  # Unsupervised mode
+            print("Unsupervised Mode: No Expert Model Used!")
+            # self.expert_model = None
+
             model = hicedrn_Diff()
             self.diffusion = Gaussiandiff(
                 model,
-                image_size = piece_s,
-                timesteps = timestep,  # number of steps
-                loss_type = 'l2',  # L1 or L2
-                beta_schedule = 'linear',
-                auto_normalize = False
+                image_size=piece_s,
+                timesteps=timestep,
+                loss_type='l2',  # L1 or L2
+                beta_schedule='linear',
+                auto_normalize=False
             ).to(device)
 
     def fit_model(self):
@@ -181,19 +188,32 @@ class HiCDiff:
                 now_loss = valid_loss
                 if now_loss < best_loss:
                     best_loss = now_loss
-                    print(f'Now, Best ssim is {best_loss:.6f}')
-                    best_ckpt_file = f'bestg_{self.res}_c{self.chunk}_s{self.chunk}_{self.cell_Line}{self.cellNo}_HiCedrn_cond_l2_lin.pytorch'
+                    # print(f'Now, Best ssim is {best_loss:.6f}')
+                    condition_str = "cond" if not self.condition else "uncond"
+                    best_ckpt_file = f'bestg_{self.res}_c{self.chunk}_s{self.chunk}_{self.cell_Line}{self.cellNo}_HiCedrn_{condition_str}_l2_lin.pytorch'
                     torch.save(self.diffusion.state_dict(), os.path.join(self.out_dir, best_ckpt_file))
-                wandb.log({"Epoch": epoch, 'train/loss':train_loss,'valid/loss': valid_loss})
+                    # best_ckpt_file = f'bestg_{self.res}_c{self.chunk}_s{self.chunk}_{self.cell_Line}{self.cellNo}_HiCedrn_cond_l2_lin.pytorch'
+                    # torch.save(self.diffusion.state_dict(), os.path.join(self.out_dir, best_ckpt_file))
+                #wandb.log({"Epoch": epoch, 'train/loss':train_loss,'valid/loss': valid_loss})
 
-        final_ckpt_file = f'finalg_{self.res}_c{self.chunk}_s{self.chunk}_{self.cell_Line}{self.cellNo}_HiCedrn_cond_l2_lin.pytorch'
+        # Inside your fit_model() method, in the final checkpoint saving section:
+        condition_str = "cond" if not self.condition else "uncond"  # supervised: 'cond'; unsupervised: 'uncond'
+
+        final_ckpt_file = f'finalg_{self.res}_c{self.chunk}_s{self.chunk}_{self.cell_Line}{self.cellNo}_HiCedrn_{condition_str}_l2_lin.pytorch'
         torch.save(self.diffusion.state_dict(), os.path.join(self.out_dir, final_ckpt_file))
+
+        # final_ckpt_file = f'finalg_{self.res}_c{self.chunk}_s{self.chunk}_{self.cell_Line}{self.cellNo}_HiCedrn_cond_l2_lin.pytorch'
+        # torch.save(self.diffusion.state_dict(), os.path.join(self.out_dir, final_ckpt_file))
 
 if __name__ == "__main__":
 
     args = create_parser()
-    train_model = HiCDiff(epoch = args.epoch, batch_size = args.batch_size, cellNo = args.celln, cell_Line = args.celline, sigma = args.sigma, condition = args.unspervised)
+    train_model = HiCDiff(epoch = args.epoch, batch_size = args.batch_size, cellNo = args.celln, cell_Line = args.celline, sigma = args.sigma, condition = args.unsupervised)
+    # train_model.fit_model()
+
+    print("DeepHiC Model Loaded Successfully!")
+    # print(train_model.expert_model)  # Print model architecture to verify it loaded correctly
+
     train_model.fit_model()
-
+    print("Training is done!!! ~~~~~")
     print("Training is done !!! ~~~~~")
-

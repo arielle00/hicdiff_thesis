@@ -21,7 +21,9 @@ root = pyrootutils.setup_root(
 
 def create_parser():
     parser = argparse.ArgumentParser(description = 'HiCDiff works for single-cell HI-C data denoising !!!')
-    parser.add_argument('-u', '--unspervised', type = bool, default = True, help = 'True means you will use unsupervsed way to train your model, False indicates you will use supervised way to train your model')
+    # parser.add_argument('-u', '--unspervised', type = bool, default = False, help = 'True means you will use unsupervsed way to train your model, False indicates you will use supervised way to train your model')
+    parser.add_argument('-u', '--unsupervised', action=argparse.BooleanOptionalAction, default=False,
+                        help="Use 'True' for unsupervised training, 'False' for supervised training")
     parser.add_argument('-b', '--batch_size', type = int, default = 64, help = 'Batch size for embeddings generation.')
     parser.add_argument('-e', '--epoch', type = int, default = 400, help = 'Number of epochs used for embeddings generation')
     parser.add_argument('-l', '--celline', type = str, default = "Human",
@@ -45,14 +47,15 @@ def Inference(batch_size = 64, cellNo = 1, cell_Line = "Human", sigma_t = 0.1, c
     sigma = sigma_t
     image_channel = 1
     image_size = batch_size
-    shedular = 'sigmoid'  # 'linear' or 'sigmoid'
+    shedular = 'linear'  # 'linear' or 'sigmoid'
 
     # below information is used for loading the pretrained diffusion models' paths
     cell_not = 1
     cell_lint = "Human"
     sigma_0 = 0.1
     model_type = condition
-    timestep = 1000 if not model_type else 2000
+    # timestep = 1000 if not model_type else 2000
+    timestep = 1000
 
     # below is used to load the diffusion model
     if not model_type:
@@ -85,35 +88,35 @@ def Inference(batch_size = 64, cellNo = 1, cell_Line = "Human", sigma_t = 0.1, c
 
     # below two is used for pretrained models'
     if not model_type:
-
         # Load Our diffusion models' weight
         model_hicEdrn = diffusion_h.to(device)
         # for human1_0.1 population train
-        file_path1 = str(root) + "/Model_Weights/" + "bestg_40000_c64_s64_" + cell_lint + str(cell_not) + "_HiCedrn_cond_l2_" + shedular[:3] + ".pytorch"
+        file_path1 = str(root) + "/Model_Weights/" + "bestg_40000_c64_s64_" + cell_lint + str(cell_not) + "_HiCedrn_cond_l2_" + shedular[:3] + ".pytorch"        
         model_hicEdrn.load_state_dict(torch.load(file_path1))
         model_hicEdrn.eval()
 
         # pay attention: how to pass the model, pass through sub_module of the conditional diffusion model to inference
         visionMetrics = vm_cond.VisionMetrics(image_channel = image_channel, image_size = image_size, timestep = timestep, type = model_type)
-        predict = visionMetrics.getMetrics(model = model_hicEdrn.super_resolution, model_name = 'hicedrn_l2_' + shedular[:3], device = device, chro = chro, deg = deg, sigma = sigma, cellN = cell_no, cell_line = cell_lin)
+        predict = visionMetrics.getMetrics(model = model_hicEdrn.super_resolution, model_name = 'hicedrn_l2_', device = device, chro = chro, deg = deg, sigma = sigma, cellN = cell_no, cell_line = cell_lin)
+        print(f"Predictions range: min={predict.min().item()}, max={predict.max().item()}")
     else:
-
         # Load Our diffusion models' weight
         model_hicEdrn = diffusion_h.to(device)
-        file_path1 = str(root) + "/Model_Weights/" + "bestg_40000_c64_s64_" + cell_lint + str(cell_not) + "_HiCedrn_l2_" + shedular[:3] + "_trans.pytorch"
+        file_path1 = str(root) + "/Model_Weights/" + "bestg_40000_c64_s64_" + cell_lint + str(cell_not) + "_HiCedrn_uncond_l2_" + shedular[:3] + ".pytorch"
         model_hicEdrn.load_state_dict(torch.load(file_path1))
         model_hicEdrn.eval()
 
         # pay attention: how to pass for the model, pass through sub_module of the unconditional diffusion model to inference
         visionMetrics = vm.VisionMetrics(image_channel = image_channel, image_size = image_size, sehedule = shedular, timestep = timestep)
-        predict = visionMetrics.getMetrics(model = model_hicEdrn.model, model_name = 'hicedrn_l2_' + shedular[:3], device = device, chro = chro, deg = deg, sigma = sigma, cellN = cell_no, cell_line = cell_lin)
-
+        predict = visionMetrics.getMetrics(model = model_hicEdrn.model, model_name = 'hicedrn_l2_', device = device, chro = chro, deg = deg, sigma = sigma, cellN = cell_no, cell_line = cell_lin)
+        print(f"Predictions range: min={predict.min().item()}, max={predict.max().item()}")
     return predict
 
 if __name__ == "__main__":
     args = create_parser()
-    Out = Inference(batch_size = args.batch_size, cellNo = args.celln, cell_Line = args.celline, sigma_t = args.sigma, condition = args.unspervised)
-
+    print(args)
+    Out = Inference(batch_size = args.batch_size, cellNo = args.celln, cell_Line = args.celline, sigma_t = args.sigma, condition = args.unsupervised)
+    
     print("inference is done, and its result is saved to its corresponding file !!!")
 
 
