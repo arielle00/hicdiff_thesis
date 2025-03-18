@@ -4,20 +4,20 @@ from skimage.metrics import structural_similarity as ssim, peak_signal_noise_rat
 import torch
 
 
-def compute_psnr(target, predicted):
+def compute_psnr(targets, predictions):
     # targets = target.cpu().numpy() if isinstance(target, torch.Tensor) else target
     # predictions = predicted.cpu().numpy() if isinstance(predicted, torch.Tensor) else predicted
 
     return psnr(targets, predictions, data_range=2)
 
-def compute_ssim(target, predicted):
+def compute_ssim(targets, predictions):
     # targets = target.cpu().numpy() if isinstance(target, torch.Tensor) else target
     # predictions = predicted.cpu().numpy() if isinstance(predicted, torch.Tensor) else predicted
 
     return ssim(targets, predictions, data_range=2)
 
 # Define file paths
-output_dir = "Outputs_diff/hicedrn_l2_Human1_deno_0.1_trans2_1000"
+output_dir = "Outputs_diff/hicedrn_l2_Human1_deno_0.1_cond"
 target_file = f"{output_dir}/target.npy"
 noisy_file = f"{output_dir}/noisy.npy"
 predict_file = f"{output_dir}/predict.npy"

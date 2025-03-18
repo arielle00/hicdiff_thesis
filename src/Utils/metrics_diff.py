@@ -152,7 +152,7 @@ class VisionMetrics:
 
         # below is to build the directory  to store the modeling results
         Outdir = str(root) + '/Outputs_diff'
-        ModelResult = model_name + cell_line + str(cellN) + "_" + deg + "_" +str(sigma) + "_trans2_" + str(self.timestep)
+        ModelResult = model_name + cell_line + str(cellN) + "_" + deg + "_" +str(sigma) + "_uncond"
         if not os.path.exists(Outdir+"/"+ModelResult):
             subprocess.run("mkdir -p "+Outdir+"/"+ModelResult, shell = True)
 
