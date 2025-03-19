@@ -20,9 +20,9 @@ class Net(nn.Module):
         super(Net, self).__init__()
         # 1 input image channel, 6 output channels, 5x5 square convolution
         # kernel
-        self.conv1 = nn.Conv2d(1, conv2d1_filters_numbers, conv2d1_filters_size) # Hout = Hin - 8
+        self.conv1 = nn.Conv2d(1, conv2d1_filters_numbers, conv2d1_filters_size, padding=4) # Hout = Hin - 8
         self.conv2 = nn.Conv2d(conv2d1_filters_numbers, conv2d2_filters_numbers, conv2d2_filters_size) # Hout = Hin
-        self.conv3 = nn.Conv2d(conv2d2_filters_numbers, 1, conv2d3_filters_size) # Hout = Hin - 4
+        self.conv3 = nn.Conv2d(conv2d2_filters_numbers, 1, conv2d3_filters_size, padding=2) # Hout = Hin - 4
 
     def forward(self, x):
         #print("start forwardingf")

@@ -12,18 +12,20 @@ class residualBlock(nn.Module):
         super(residualBlock, self).__init__()
 
         self.conv1 = nn.Conv2d(channels, channels, k, stride=s, padding=1)
-        self.bn1 = nn.BatchNorm2d(channels)
+        # self.bn1 = nn.BatchNorm2d(channels)
         # a swish layer here
         self.conv2 = nn.Conv2d(channels, channels, k, stride=s, padding=1)
-        self.bn2 = nn.BatchNorm2d(channels)
+        # self.bn2 = nn.BatchNorm2d(channels)
 
     def forward(self, x):
-        residual = swish(self.bn1(self.conv1(x)))
-        residual =       self.bn2(self.conv2(residual))
+        # residual = swish(self.bn1(self.conv1(x)))
+        # residual = self.bn2(self.conv2(residual))
+        residual = swish(self.conv1(x))
+        residual = self.conv2(residual)
         return x + residual
     
 class Generator(nn.Module):
-    def __init__(self, scale_factor, in_channel=3, resblock_num=5):
+    def __init__(self, scale_factor, in_channel=1, resblock_num=5):
         super(Generator, self).__init__()
         self.conv1 = nn.Conv2d(in_channel, 64, kernel_size=9, stride=1, padding=4)
         # have a swish here in forward
@@ -42,10 +44,11 @@ class Generator(nn.Module):
         x   =       self.resblocks(emb)
         x   = swish(self.bn2(self.conv2(x)))
         x   =       self.conv3(x + emb)
-        return (torch.tanh(x) + 1) / 2
+        # return (torch.tanh(x) + 1) / 2
+        return torch.tanh(x)
 
 class Discriminator(nn.Module):
-    def __init__(self, in_channel=3):
+    def __init__(self, in_channel=1):
         super(Discriminator, self).__init__()
         self.conv1 = nn.Conv2d(in_channel, 64, 3, stride=1, padding=1)
 

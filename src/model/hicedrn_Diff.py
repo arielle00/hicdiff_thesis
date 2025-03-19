@@ -271,7 +271,7 @@ class hicedrn_Diff(nn.Module):
             x = torch.cat((x_self_cond, x), dim = 1)
         '''
         x = torch.cat((x_self_cond, x), dim=1) if self.self_condition else x
-
+        # print(x.shape)
         x = self.head(x)
         r = x.clone()
         t = self.time_mlp(time)  # here is the time-embedding n_feat * 4

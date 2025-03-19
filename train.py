@@ -7,6 +7,8 @@ from tqdm import tqdm
 from distutils.util import strtobool
 
 from src.model.deephic import Generator as DeepHiC_Generator  # Import DeepHiC Generator model
+from src.model.hicplus import Net as HiCPlus_Generator
+from src.model.HiCAlign import SimpleHiCAlign as SimpleHiCAlign
 from src.model.hicedrn_Diff import hicedrn_Diff  # baseline models' modules
 from src.hicdiff_condition import GaussianDiffusion as Gaussiandiff_cond  # baseline models' modules conditional Diff
 from src.hicdiff import GaussianDiffusion as Gaussiandiff # baseline models's modules without conditional
@@ -86,8 +88,10 @@ class HiCDiff:
 
         if not self.condition:  # Supervised mode
             print("Supervised Mode: Using DeepHiC Expert Model!")
-            # self.expert_model = DeepHiC_Generator(scale_factor=2).to(self.device)
-            # self.expert_model.eval()  # Set DeepHiC to evaluation mode
+            
+            # self.expert_model = HiCPlus_Generator(D_in=40, D_out=24).to(self.device)
+            self.expert_model = SimpleHiCAlign().to(self.device)
+            self.expert_model.eval()  
 
             model = hicedrn_Diff(self_condition=True)
             self.diffusion = Gaussiandiff_cond(
@@ -101,7 +105,7 @@ class HiCDiff:
 
         else:  # Unsupervised mode
             print("Unsupervised Mode: No Expert Model Used!")
-            # self.expert_model = None
+            self.expert_model = None
 
             model = hicedrn_Diff()
             self.diffusion = Gaussiandiff(
@@ -131,10 +135,26 @@ class HiCDiff:
                 run_result['nsamples'] += batch_size
                 data = data.to(self.device)
                 target = target.to(self.device)
-                if not self.condition:
-                    x = [data, target]
-                else:
-                    x = target
+                # if not self.condition:
+                #     x = [data, target]
+                # else:
+                #     x = target
+                
+                # 🛠 **Use Expert Model in Supervised Mode** 🛠
+                if not self.condition:  # If supervised (conditioned)
+                    with torch.no_grad():
+                        
+                        # data = data.repeat(1, 3, 1, 1)
+                        # print(data.shape)
+                        # print(f"Input to DeepHiC: min={data.min().item()}, max={data.max().item()}")
+                        print(f"Input : min={data.min().item()}, max={data.max().item()}, shape={data.shape}")  
+                        expert_target = self.expert_model(data)  # Get cleaned target from DeepHiC
+                        print(f"Output: min={expert_target.min().item()}, max={expert_target.max().item()}, shape={expert_target.shape}")
+                        # print(f"DeepHiC Output: min={expert_target.min().item()}, max={expert_target.max().item()}")
+                    x = [data, expert_target]  # Input: noisy + expert guidance
+                    
+                else:  
+                    x = target  # Unsupervised uses just the noisy target
 
                 loss = self.diffusion(x)
                 loss.backward()
@@ -145,7 +165,7 @@ class HiCDiff:
 
             train_loss = run_result['loss'] / run_result['nsamples']
 
-
+            # =================VALIDATION============================
             valid_result = {'nsamples': 0, 'loss': 0}
             self.diffusion.eval()
             valid_bar = tqdm(self.valid_loader)
@@ -158,10 +178,17 @@ class HiCDiff:
                     data = data.to(self.device)
                     target = target.to(self.device)
 
+                    # if not self.condition:
+                    #     x = [data, target]
+                    # else:
+                    #     x = target
                     if not self.condition:
-                        x = [data, target]
+                        # data = data.repeat(1, 3, 1, 1)
+                        expert_target = self.expert_model(data)  # Get expert supervision
+                        x = [data, expert_target]
                     else:
                         x = target
+
                     loss = self.diffusion(x)
 
                     '''
